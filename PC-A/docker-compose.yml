@@ -1,0 +1,128 @@
+version: '3.8'
+
+# Docker Compose untuk WORKER NODE PC-A (10.28.83.228)
+# PC-A memiliki 2 GPUs - jalankan 2 workers
+# Connect ke Master Server (100.79.202.62)
+
+services:
+  # Worker untuk GPU 0
+  segmentation-worker-gpu0:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: brainnav-worker-${WORKER_NODE_NAME:-node1}-gpu0
+    environment:
+      WORKER_NAME: ${WORKER_NODE_NAME:-pc-a}-gpu0
+      CUDA_VISIBLE_DEVICES: 0
+      
+      # RabbitMQ (connect ke Master Server)
+      RABBITMQ_HOST: ${MASTER_IP:-100.79.202.62}
+      RABBITMQ_PORT: 5673
+      RABBITMQ_USER: ${RABBITMQ_USER:-brainnav}
+      RABBITMQ_PASS: ${RABBITMQ_PASS:-BrainNav_Secure_2025!}
+      RABBITMQ_VHOST: ${RABBITMQ_VHOST:-brainnav_vhost}
+      RABBITMQ_QUEUE: segmentation_tasks
+      
+      # Redis (connect ke Master Server)
+      REDIS_URL: redis://:${REDIS_PASSWORD:-BrainNav_Secure_2025!}@${MASTER_IP:-100.79.202.62}:6380/0
+      SEGMENTATION_RESULT_TTL: 3600
+      
+      # Model
+      MODEL_PATH: /models/best_metric_model.pth
+      DEVICE: cuda
+      
+      # Processing
+      PATCH_SIZE: 128
+      OVERLAP_RATIO: 0.25
+      BATCH_SIZE: 1
+      NUM_WORKERS: 2
+      
+      # Logging
+      LOG_LEVEL: INFO
+    ports:
+      - "8001:8000"  # Health check & metrics
+    volumes:
+      - ./best_metric_model.pth:/models/best_metric_model.pth:ro
+      - ./data:/app/data
+      - ./cache:/app/cache
+      - worker_gpu0_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['0']
+              capabilities: [gpu]
+
+  # Worker untuk GPU 1 (hanya untuk PC dengan 2 GPUs)
+  # Uncomment jika PC memiliki 2 GPUs (seperti PC 1 dengan 2x RTX 5080)
+  # Comment jika PC hanya punya 1 GPU (seperti PC 2 dengan 1x RTX 2080)
+  
+  segmentation-worker-gpu1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: brainnav-worker-${WORKER_NODE_NAME:-node1}-gpu1
+    environment:
+      WORKER_NAME: ${WORKER_NODE_NAME:-pc-a}-gpu1
+      CUDA_VISIBLE_DEVICES: 1
+      
+      # RabbitMQ (connect ke Master Server)
+      RABBITMQ_HOST: ${MASTER_IP:-100.79.202.62}
+      RABBITMQ_PORT: 5673
+      RABBITMQ_USER: ${RABBITMQ_USER:-brainnav}
+      RABBITMQ_PASS: ${RABBITMQ_PASS:-BrainNav_Secure_2025!}
+      RABBITMQ_VHOST: ${RABBITMQ_VHOST:-brainnav_vhost}
+      RABBITMQ_QUEUE: segmentation_tasks
+      
+      # Redis (connect ke Master Server)
+      REDIS_URL: redis://:${REDIS_PASSWORD:-BrainNav_Secure_2025!}@${MASTER_IP:-100.79.202.62}:6380/0
+      SEGMENTATION_RESULT_TTL: 3600
+      
+      # Model
+      MODEL_PATH: /models/best_metric_model.pth
+      DEVICE: cuda
+      
+      # Processing
+      PATCH_SIZE: 128
+      OVERLAP_RATIO: 0.25
+      BATCH_SIZE: 1
+      NUM_WORKERS: 2
+      
+      # Logging
+      LOG_LEVEL: INFO
+    ports:
+      - "8002:8000"  # Health check & metrics
+    volumes:
+      - ./best_metric_model.pth:/models/best_metric_model.pth:ro
+      - ./data:/app/data
+      - ./cache:/app/cache
+      - worker_gpu1_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['1']
+              capabilities: [gpu]
+    # Uncomment line dibawah untuk PC dengan 1 GPU saja
+    # profiles:
+    #   - dual-gpu  # Ini akan disable service ini secara default
+
+volumes:
+  worker_gpu0_logs:
+  worker_gpu1_logs:
+
+# Network tidak perlu didefinisikan karena workers connect via IP langsung

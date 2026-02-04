@@ -2,7 +2,7 @@ version: '3.8'
 
 # Docker Compose untuk WORKER NODE PC-A (10.28.83.228)
 # PC-A memiliki 2 GPUs - jalankan 2 workers
-# Connect ke Master Server (100.79.202.62)
+# Connect ke Master Server (10.28.83.141)
 
 services:
   # Worker untuk GPU 0
@@ -16,7 +16,7 @@ services:
       CUDA_VISIBLE_DEVICES: 0
       
       # RabbitMQ (connect ke Master Server)
-      RABBITMQ_HOST: ${MASTER_IP:-100.79.202.62}
+      RABBITMQ_HOST: ${MASTER_IP:-10.28.83.141}
       RABBITMQ_PORT: 5674
       RABBITMQ_USER: ${RABBITMQ_USER:-brainnav}
       RABBITMQ_PASS: ${RABBITMQ_PASS:-BrainNav_Secure_2025!}
@@ -24,7 +24,7 @@ services:
       RABBITMQ_QUEUE: segmentation_tasks
       
       # Redis (connect ke Master Server)
-      REDIS_URL: redis://:${REDIS_PASSWORD:-BrainNav_Secure_2025!}@${MASTER_IP:-100.79.202.62}:6381/0
+      REDIS_URL: redis://:${REDIS_PASSWORD:-BrainNav_Secure_2025!}@${MASTER_IP:-10.28.83.141}:6381/0
       SEGMENTATION_RESULT_TTL: 3600
       
       # Model
@@ -74,7 +74,7 @@ services:
       CUDA_VISIBLE_DEVICES: 1
       
       # RabbitMQ (connect ke Master Server)
-      RABBITMQ_HOST: ${MASTER_IP:-100.79.202.62}
+      RABBITMQ_HOST: ${MASTER_IP:-10.28.83.141}
       RABBITMQ_PORT: 5674
       RABBITMQ_USER: ${RABBITMQ_USER:-brainnav}
       RABBITMQ_PASS: ${RABBITMQ_PASS:-BrainNav_Secure_2025!}
@@ -82,7 +82,7 @@ services:
       RABBITMQ_QUEUE: segmentation_tasks
       
       # Redis (connect ke Master Server)
-      REDIS_URL: redis://:${REDIS_PASSWORD:-BrainNav_Secure_2025!}@${MASTER_IP:-100.79.202.62}:6381/0
+      REDIS_URL: redis://:${REDIS_PASSWORD:-BrainNav_Secure_2025!}@${MASTER_IP:-10.28.83.141}:6381/0
       SEGMENTATION_RESULT_TTL: 3600
       
       # Model

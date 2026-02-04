@@ -17,14 +17,14 @@ services:
       
       # RabbitMQ (connect ke Master Server)
       RABBITMQ_HOST: ${MASTER_IP:-100.79.202.62}
-      RABBITMQ_PORT: 5673
+      RABBITMQ_PORT: 5674
       RABBITMQ_USER: ${RABBITMQ_USER:-brainnav}
       RABBITMQ_PASS: ${RABBITMQ_PASS:-BrainNav_Secure_2025!}
       RABBITMQ_VHOST: ${RABBITMQ_VHOST:-brainnav_vhost}
       RABBITMQ_QUEUE: segmentation_tasks
       
       # Redis (connect ke Master Server)
-      REDIS_URL: redis://:${REDIS_PASSWORD:-BrainNav_Secure_2025!}@${MASTER_IP:-100.79.202.62}:6380/0
+      REDIS_URL: redis://:${REDIS_PASSWORD:-BrainNav_Secure_2025!}@${MASTER_IP:-100.79.202.62}:6381/0
       SEGMENTATION_RESULT_TTL: 3600
       
       # Model

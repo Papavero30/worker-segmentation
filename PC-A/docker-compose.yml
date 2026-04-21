@@ -22,6 +22,11 @@ services:
       RABBITMQ_PASS: ${RABBITMQ_PASS:-BrainNav_Secure_2025!}
       RABBITMQ_VHOST: ${RABBITMQ_VHOST:-brainnav_vhost}
       RABBITMQ_QUEUE: segmentation_tasks
+      QUEUE_HOMOGEN: segmentation_tasks_homogen
+      QUEUE_HETEROGEN: segmentation_tasks_heterogen
+      QUEUE_LEGACY: segmentation_tasks
+      CLUSTER_MODES: homogen,heterogen
+      GPU_TYPE: RTX5080
       
       # Redis (connect ke Master Server)
       REDIS_URL: redis://:${REDIS_PASSWORD:-BrainNav_Secure_2025!}@${MASTER_IP:-10.28.83.141}:6381/0
@@ -80,6 +85,11 @@ services:
       RABBITMQ_PASS: ${RABBITMQ_PASS:-BrainNav_Secure_2025!}
       RABBITMQ_VHOST: ${RABBITMQ_VHOST:-brainnav_vhost}
       RABBITMQ_QUEUE: segmentation_tasks
+      QUEUE_HOMOGEN: segmentation_tasks_homogen
+      QUEUE_HETEROGEN: segmentation_tasks_heterogen
+      QUEUE_LEGACY: segmentation_tasks
+      CLUSTER_MODES: homogen,heterogen
+      GPU_TYPE: RTX5080
       
       # Redis (connect ke Master Server)
       REDIS_URL: redis://:${REDIS_PASSWORD:-BrainNav_Secure_2025!}@${MASTER_IP:-10.28.83.141}:6381/0

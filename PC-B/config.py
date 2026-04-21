@@ -3,6 +3,21 @@ Configuration for Segmentation Worker
 """
 import os
 from dataclasses import dataclass
+from typing import List
+
+
+def _parse_cluster_modes(raw_value: str) -> List[str]:
+    modes: List[str] = []
+    for mode in raw_value.split(','):
+        normalized = mode.strip().lower()
+        if normalized:
+            modes.append(normalized)
+
+    if not modes:
+        return ['homogen']
+
+    # Deduplicate while preserving order
+    return list(dict.fromkeys(modes))
 
 
 @dataclass
@@ -15,7 +30,11 @@ class WorkerConfig:
     rabbitmq_user: str
     rabbitmq_pass: str
     rabbitmq_vhost: str
-    rabbitmq_queue: str
+    rabbitmq_queue: str  # Backward compatibility single queue
+    queue_homogen: str
+    queue_heterogen: str
+    queue_legacy: str
+    cluster_modes: List[str]
     
     # Redis
     redis_url: str
@@ -34,6 +53,7 @@ class WorkerConfig:
     # Logging
     log_level: str
     worker_name: str
+    gpu_type: str
     
     @classmethod
     def from_env(cls) -> 'WorkerConfig':
@@ -46,6 +66,10 @@ class WorkerConfig:
             rabbitmq_pass=os.getenv('RABBITMQ_PASS', 'brainnav_secure_password'),
             rabbitmq_vhost=os.getenv('RABBITMQ_VHOST', 'brainnav_vhost'),
             rabbitmq_queue=os.getenv('RABBITMQ_QUEUE', 'segmentation_tasks'),
+            queue_homogen=os.getenv('QUEUE_HOMOGEN', 'segmentation_tasks_homogen'),
+            queue_heterogen=os.getenv('QUEUE_HETEROGEN', 'segmentation_tasks_heterogen'),
+            queue_legacy=os.getenv('QUEUE_LEGACY', 'segmentation_tasks'),
+            cluster_modes=_parse_cluster_modes(os.getenv('CLUSTER_MODES', 'homogen')),
             
             # Redis
             redis_url=os.getenv('REDIS_URL', 'redis://localhost:6379/0'),
@@ -57,6 +81,7 @@ class WorkerConfig:
             
             # Processing
             patch_size=int(os.getenv('PATCH_SIZE', '128')),
+            # Note: overlap_ratio is not used for master slicing; only for internal model sliding window behavior.
             overlap_ratio=float(os.getenv('OVERLAP_RATIO', '0.25')),
             batch_size=int(os.getenv('BATCH_SIZE', '4')),
             num_workers=int(os.getenv('NUM_WORKERS', '4')),
@@ -64,4 +89,5 @@ class WorkerConfig:
             # Logging
             log_level=os.getenv('LOG_LEVEL', 'INFO'),
             worker_name=os.getenv('WORKER_NAME', f'worker-{os.getpid()}'),
+            gpu_type=os.getenv('GPU_TYPE', 'UNKNOWN'),
         )

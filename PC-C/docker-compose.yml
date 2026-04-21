@@ -1,7 +1,7 @@
 version: '3.8'
 
-# Docker Compose untuk WORKER NODE PC-B (10.28.83.215)
-# PC-B hanya memiliki 1 GPU, jadi hanya 1 worker
+# Docker Compose untuk WORKER NODE PC-C (template)
+# PC-C memiliki 1 GPU (RTX 2080), jadi hanya 1 worker
 # Connect ke Master Server (10.28.83.141)
 
 services:
@@ -10,9 +10,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: brainnav-worker-pc-b-gpu0
+    container_name: brainnav-worker-pc-c-gpu0
     environment:
-      WORKER_NAME: pc-b-gpu0
+      WORKER_NAME: pc-c-gpu0
       CUDA_VISIBLE_DEVICES: 0
       
       # RabbitMQ (connect ke Master Server)
@@ -25,8 +25,8 @@ services:
       QUEUE_HOMOGEN: segmentation_tasks_homogen
       QUEUE_HETEROGEN: segmentation_tasks_heterogen
       QUEUE_LEGACY: segmentation_tasks
-      CLUSTER_MODES: homogen
-      GPU_TYPE: RTX5080
+      CLUSTER_MODES: heterogen
+      GPU_TYPE: RTX2080
       
       # Redis (connect ke Master Server)
       REDIS_URL: redis://:${REDIS_PASSWORD:-BrainNav_Secure_2025!}@${MASTER_IP:-10.28.83.141}:6381/0

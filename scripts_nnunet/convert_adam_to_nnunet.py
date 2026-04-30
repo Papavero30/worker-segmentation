@@ -38,8 +38,11 @@ def convert_dataset():
         
         subj_path = Path(subj_dir)
         
-        # Cari file secara rekursif di dalam folder subject tersebut
-        image_files = list(subj_path.rglob("TOF.nii.gz"))
+        # Cari file secara rekursif, utamakan yang di folder 'pre'
+        image_files = list(subj_path.rglob("pre/TOF.nii.gz"))
+        if not image_files:
+             image_files = list(subj_path.rglob("TOF.nii.gz"))
+             
         label_files = list(subj_path.rglob("aneurysms.nii.gz"))
         
         if image_files and label_files:
@@ -55,14 +58,14 @@ def convert_dataset():
             try:
                 os.symlink(image_path, os.path.join(OUT_IMAGES_TR, out_image_name))
                 os.symlink(label_path, os.path.join(OUT_LABELS_TR, out_label_name))
+                print(f"[{subject}] SUCCESS (Symlink): {image_path} -> {out_image_name}")
             except OSError:
                 # Fallback ke copy jika symlink gagal
                 shutil.copy(image_path, os.path.join(OUT_IMAGES_TR, out_image_name))
                 shutil.copy(label_path, os.path.join(OUT_LABELS_TR, out_label_name))
-                
-            print(f"Processed subject: {subject}")
+                print(f"[{subject}] SUCCESS (Copy): {image_path} -> {out_image_name}")
         else:
-            print(f"File missing for subject: {subject}")
+            print(f"[{subject}] FAILED: Missing TOF or aneurysms file")
 
 def create_dataset_json():
     """

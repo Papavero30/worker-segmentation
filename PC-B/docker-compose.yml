@@ -1,5 +1,3 @@
-version: '3.8'
-
 # Docker Compose untuk WORKER NODE PC-B (10.28.83.215)
 # PC-B hanya memiliki 1 GPU, jadi hanya 1 worker
 # Connect ke Master Server (10.28.83.141)

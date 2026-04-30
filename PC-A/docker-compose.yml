@@ -1,5 +1,3 @@
-version: '3.8'
-
 # Docker Compose untuk WORKER NODE PC-A (10.28.83.228)
 # PC-A memiliki 2 GPUs - jalankan 2 workers
 # Connect ke Master Server (10.28.83.141)
@@ -127,9 +125,10 @@ services:
             - driver: nvidia
               device_ids: ['1']
               capabilities: [gpu]
-    # Uncomment line dibawah untuk PC dengan 1 GPU saja
-    # profiles:
-    #   - dual-gpu  # Ini akan disable service ini secara default
+    # gpu1 service hanya start kalau explicit: docker compose --profile dual-gpu up -d
+    # Default (tanpa flag): hanya gpu0 yang jalan — cocok untuk PC dengan 1 GPU.
+    profiles:
+      - dual-gpu
 
 volumes:
   worker_gpu0_logs:

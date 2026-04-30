@@ -36,15 +36,16 @@ def convert_dataset():
     for subject in subjects:
         subj_dir = os.path.join(ADAM_RAW_DIR, subject)
         
-        # Asumsi struktur ADAM: 
-        # subj_dir/pre/TOF.nii.gz (Image)
-        # subj_dir/aneurysms.nii.gz (Label)
-        # SILAKAN SESUAIKAN DENGAN STRUKTUR ASLI DATASET ANDA
+        subj_path = Path(subj_dir)
         
-        image_path = os.path.join(subj_dir, "pre", "TOF.nii.gz")
-        label_path = os.path.join(subj_dir, "aneurysms.nii.gz")
+        # Cari file secara rekursif di dalam folder subject tersebut
+        image_files = list(subj_path.rglob("TOF.nii.gz"))
+        label_files = list(subj_path.rglob("aneurysms.nii.gz"))
         
-        if os.path.exists(image_path) and os.path.exists(label_path):
+        if image_files and label_files:
+            image_path = str(image_files[0])
+            label_path = str(label_files[0])
+            
             # Format nama nnUNet: ADAM_001_0000.nii.gz (Image), ADAM_001.nii.gz (Label)
             out_image_name = f"ADAM_{subject}_0000.nii.gz"
             out_label_name = f"ADAM_{subject}.nii.gz"

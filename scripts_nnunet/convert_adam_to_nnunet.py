@@ -1,6 +1,8 @@
 import os
 import shutil
 import json
+import nibabel as nib
+import numpy as np
 from pathlib import Path
 
 # ============================================================================
@@ -53,17 +55,31 @@ def convert_dataset():
             out_image_name = f"ADAM_{subject}_0000.nii.gz"
             out_label_name = f"ADAM_{subject}.nii.gz"
             
-            # Gunakan symlink atau copy. Symlink lebih hemat disk space (600GB!)
-            # Di Windows butuh Run As Administrator untuk symlink
+            # 1. Image (TOF.nii.gz) -> Symlink / Copy
             try:
                 os.symlink(image_path, os.path.join(OUT_IMAGES_TR, out_image_name))
-                os.symlink(label_path, os.path.join(OUT_LABELS_TR, out_label_name))
-                print(f"[{subject}] SUCCESS (Symlink): {image_path} -> {out_image_name}")
+                print(f"[{subject}] Image SUCCESS (Symlink): {image_path} -> {out_image_name}")
             except OSError:
-                # Fallback ke copy jika symlink gagal
                 shutil.copy(image_path, os.path.join(OUT_IMAGES_TR, out_image_name))
-                shutil.copy(label_path, os.path.join(OUT_LABELS_TR, out_label_name))
-                print(f"[{subject}] SUCCESS (Copy): {image_path} -> {out_image_name}")
+                print(f"[{subject}] Image SUCCESS (Copy): {image_path} -> {out_image_name}")
+                
+            # 2. Label (aneurysms.nii.gz) -> Binarize & Save
+            # ADAM dataset menggunakan angka 1, 2, 3.. untuk instance aneurysm yang berbeda.
+            # nnUNet membutuhkan label binary (0: background, 1: aneurysm) untuk semantic segmentation.
+            try:
+                mask_nii = nib.load(label_path)
+                mask_data = mask_nii.get_fdata()
+                
+                # Binarize: semua nilai > 0 menjadi 1
+                mask_data[mask_data > 0] = 1
+                mask_data = mask_data.astype(np.uint8)
+                
+                # Save kembali
+                new_mask_nii = nib.Nifti1Image(mask_data, mask_nii.affine, mask_nii.header)
+                nib.save(new_mask_nii, os.path.join(OUT_LABELS_TR, out_label_name))
+                print(f"[{subject}] Label SUCCESS (Binarized & Saved): {label_path} -> {out_label_name}")
+            except Exception as e:
+                print(f"[{subject}] Label FAILED: {str(e)}")
         else:
             print(f"[{subject}] FAILED: Missing TOF or aneurysms file")
 

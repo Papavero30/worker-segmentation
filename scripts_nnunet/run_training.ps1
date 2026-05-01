@@ -33,11 +33,16 @@ $env:CUDA_MODULE_LOADING = "LAZY"
 $env:PYTORCH_CUDA_ALLOC_CONF = "expandable_segments:True"
 $env:nnUNet_keep_files_open = "False"
 
+# Mencegah ptxas.exe memakan seluruh System RAM (Virtual Memory) saat kompilasi CUDA
+$env:MAX_JOBS = "1"
+$env:NINJA_MAX_JOBS = "1"
+
 Write-Host "  nnUNet_raw          = $env:nnUNet_raw"
 Write-Host "  nnUNet_preprocessed = $env:nnUNet_preprocessed"
 Write-Host "  nnUNet_results      = $env:nnUNet_results"
 Write-Host "  [OPT] CUDA_MODULE_LOADING       = $env:CUDA_MODULE_LOADING"
 Write-Host "  [OPT] PYTORCH_CUDA_ALLOC_CONF   = $env:PYTORCH_CUDA_ALLOC_CONF"
+Write-Host "  [OPT] MAX_JOBS                  = $env:MAX_JOBS"
 
 # 3. Konfigurasi ID Dataset
 $datasetId = Read-Host "`nMasukkan ID Dataset nnUNet (Contoh: 100 atau 500)"

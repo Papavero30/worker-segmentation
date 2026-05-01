@@ -30,24 +30,17 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD:-BrainNav_Secure_2025!}@${MASTER_IP:-10.28.83.141}:6381/0
       SEGMENTATION_RESULT_TTL: 3600
       
-      # Model
-      MODEL_PATH: /models/best_metric_model.pth
+      # nnU-Net 2D model
+      NNUNET_MODEL_FOLDER: /models/nnunet_2d
+      NNUNET_FOLDS: ${NNUNET_FOLDS:-0,1,2,3,4}
       DEVICE: cuda
-      
-      # Processing
-      PATCH_SIZE: 128
-      OVERLAP_RATIO: 0.25
-      BATCH_SIZE: 1
-      NUM_WORKERS: 2
-      
+
       # Logging
       LOG_LEVEL: INFO
     ports:
       - "8001:8000"  # Health check & metrics
     volumes:
-      - ./best_metric_model.pth:/models/best_metric_model.pth:ro
-      - ./data:/app/data
-      - ./cache:/app/cache
+      - ${NNUNET_MODEL_PATH:-./nnunet_2d}:/models/nnunet_2d:ro
       - worker_gpu0_logs:/app/logs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]

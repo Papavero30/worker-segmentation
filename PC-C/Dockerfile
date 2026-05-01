@@ -33,8 +33,11 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Install PyTorch with CUDA 12.4 support for RTX 5080 (Blackwell)
+# PyTorch cu124 untuk RTX 2080 (Turing, CUDA 12.4 sudah cukup)
 RUN pip3 install --no-cache-dir torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu124
+
+# nnU-Net v2
+RUN pip3 install --no-cache-dir nnunetv2
 
 # Copy worker code
 COPY . .

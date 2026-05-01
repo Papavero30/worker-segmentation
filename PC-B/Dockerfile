@@ -33,9 +33,11 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-# PyTorch 2.7+ cu128 untuk support RTX 5080 Blackwell (sm_120).
-# 2.5.1+cu124 TIDAK support sm_120 dan akan fallback ke CPU.
+# PyTorch cu128 untuk RTX 5080 (Blackwell sm_120, tidak support di cu124)
 RUN pip3 install --no-cache-dir torch==2.7.0 torchvision==0.22.0 --index-url https://download.pytorch.org/whl/cu128
+
+# nnU-Net v2
+RUN pip3 install --no-cache-dir nnunetv2
 
 # Copy worker code
 COPY . .

@@ -1,23 +1,16 @@
 #!/usr/bin/env python3
 """
-BrainNav Segmentation Worker
-Consumes tasks from RabbitMQ, performs brain segmentation using UNETR model,
+BrainNav Segmentation Worker (nnU-Net 2D)
+Consumes tasks from RabbitMQ, performs brain segmentation using nnU-Net 2D,
 and stores results in Redis.
 
 Architecture:
-1. Connect to RabbitMQ (message queue for task distribution)
-2. Connect to Redis (for storing segmentation results)
-3. Load UNETR model into memory
-4. Consume tasks from queue:
-   - Preprocess 2D chunk to 3D volume with Gaussian depth variation
-   - Run UNETR inference
-   - Postprocess to 2D segmentation mask
-   - Store result in Redis
-   - Update progress counter
-   - ACK task
+1. Connect to RabbitMQ and Redis
+2. Load nnU-Net 2D ensemble predictor into memory
+3. Consume tasks: decode chunk → nnU-Net 2D inference → store mask in Redis → ACK
 
-Metrics published to Prometheus on port 8000/metrics
-Health check available on port 8000/health
+Metrics: Prometheus on port 8000/metrics
+Health: port 8000/health
 """
 
 import os
@@ -125,6 +118,7 @@ def health():
             'status': 'healthy',
             'worker_name': _worker.worker_name,
             'device': str(_processor.device),
+            'model': 'nnunet_2d',
             'model_loaded': True,
             'timestamp': time.time()
         }), 200
@@ -160,11 +154,11 @@ class SegmentationWorker:
         self.rabbitmq_channel = None
         self._setup_rabbitmq()
         
-        # Initialize model and processor
-        logger.info(f"Loading model from {config.model_path}")
-        self.model_loader = ModelLoader(config.model_path, config.device)
+        # Initialize nnU-Net 2D predictor and processor
+        logger.info(f"Loading nnU-Net 2D from {config.nnunet_model_folder} folds={config.nnunet_folds}")
+        self.model_loader = ModelLoader(config.nnunet_model_folder, config.nnunet_folds, config.device)
         self.processor = ChunkProcessor(
-            self.model_loader.model,
+            self.model_loader.get_predictor(),
             self.model_loader.device,
             config
         )
@@ -173,7 +167,7 @@ class SegmentationWorker:
         logger.info(f"GPU type: {self.gpu_type}")
         logger.info(f"Device: {self.model_loader.device}")
         logger.info(f"Subscribed queues: {', '.join(self.subscribed_queues)}")
-        logger.info(f"Model loaded: {config.model_path}")
+        logger.info(f"nnU-Net 2D model: {config.nnunet_model_folder} folds={config.nnunet_folds}")
 
     def _build_subscribed_queues(self) -> List[str]:
         queue_map = {

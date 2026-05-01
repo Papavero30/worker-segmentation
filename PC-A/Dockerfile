@@ -33,10 +33,11 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Install PyTorch dengan CUDA 12.8 + Blackwell (sm_120) support untuk RTX 5080
-# PyTorch 2.5.1+cu124 TIDAK support sm_120, fallback ke CPU saat .cuda() dipanggil.
-# Stable build pertama yang support sm_120: torch 2.7.0 + cu128.
+# PyTorch cu128 untuk RTX 5080 (Blackwell sm_120, tidak support di cu124)
 RUN pip3 install --no-cache-dir torch==2.7.0 torchvision==0.22.0 --index-url https://download.pytorch.org/whl/cu128
+
+# nnU-Net v2
+RUN pip3 install --no-cache-dir nnunetv2
 
 # Copy worker code
 COPY . .

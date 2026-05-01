@@ -28,9 +28,16 @@ $env:nnUNet_raw = "$workspaceDir\nnUNet_raw"
 $env:nnUNet_preprocessed = "$workspaceDir\nnUNet_preprocessed"
 $env:nnUNet_results = "$workspaceDir\nnUNet_results"
 
+# Optimasi CUDA untuk mencegah Out of Memory & PTXAS Memory Allocation Failure di RTX 5080
+$env:CUDA_MODULE_LOADING = "LAZY"
+$env:PYTORCH_CUDA_ALLOC_CONF = "expandable_segments:True"
+$env:nnUNet_keep_files_open = "False"
+
 Write-Host "  nnUNet_raw          = $env:nnUNet_raw"
 Write-Host "  nnUNet_preprocessed = $env:nnUNet_preprocessed"
 Write-Host "  nnUNet_results      = $env:nnUNet_results"
+Write-Host "  [OPT] CUDA_MODULE_LOADING       = $env:CUDA_MODULE_LOADING"
+Write-Host "  [OPT] PYTORCH_CUDA_ALLOC_CONF   = $env:PYTORCH_CUDA_ALLOC_CONF"
 
 # 3. Konfigurasi ID Dataset
 $datasetId = Read-Host "`nMasukkan ID Dataset nnUNet (Contoh: 100 atau 500)"

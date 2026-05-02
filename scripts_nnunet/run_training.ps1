@@ -142,11 +142,11 @@ $env:nnUNet_raw          = "$workspaceDir\nnUNet_raw"
 $env:nnUNet_preprocessed = "$workspaceDir\nnUNet_preprocessed"
 $env:nnUNet_results      = "$workspaceDir\nnUNet_results"
 
-# CRITICAL FIX untuk WinError 6: disable multi-thread data augmentation worker.
+# CRITICAL FIX untuk WinError 6: kurangi multi-thread data augmentation worker.
 # Default 12 worker bikin race condition di Windows multiprocessing.
-# Dengan nnUNet_n_proc_DA=0, augmentation jalan single-threaded (lebih stabil,
-# sedikit lebih lambat tapi GPU sudah jadi bottleneck).
-$env:nnUNet_n_proc_DA       = "0"
+# Pakai 1 (bukan 0) karena planner panggil torch.set_num_threads() yang butuh int >=1.
+# Ini cukup stabil di Windows tanpa kehilangan banyak performa (GPU jadi bottleneck).
+$env:nnUNet_n_proc_DA       = "1"
 $env:nnUNet_keep_files_open = "False"
 $env:CUDA_MODULE_LOADING    = "LAZY"
 $env:MAX_JOBS               = "1"
@@ -155,7 +155,7 @@ $env:NINJA_MAX_JOBS         = "1"
 Write-Host "  nnUNet_raw          = $env:nnUNet_raw"
 Write-Host "  nnUNet_preprocessed = $env:nnUNet_preprocessed"
 Write-Host "  nnUNet_results      = $env:nnUNet_results"
-Write-Host "  nnUNet_n_proc_DA    = $env:nnUNet_n_proc_DA  (0 = single-threaded augmenter, fix WinError 6)" -ForegroundColor DarkGray
+Write-Host "  nnUNet_n_proc_DA    = $env:nnUNet_n_proc_DA  (1 = single-threaded augmenter, fix WinError 6 di Windows)" -ForegroundColor DarkGray
 
 # 4. Dataset ID
 $datasetId = Read-Host "`n[3/3] Masukkan ID Dataset nnUNet (Contoh: 501)"

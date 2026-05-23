@@ -32,11 +32,12 @@ class ChunkProcessor:
         Returns:
             uint8 binary mask shape (H, W), values {0, 1}
         """
-        # nnU-Net 2D expects (C, H, W) — single channel
-        input_arr = chunk_2d[np.newaxis, :, :].astype(np.float32)
-
-        # spacing dummy — chunk is already a pixel-space tile, isotropic
-        props = {'spacing': [1.0, 1.0]}
+        # nnU-Net 2D internally treats each slice as a 3D volume with Z=1.
+        # predict_single_npy_array requires shape (C, Z, H, W) = (1, 1, H, W)
+        # and a 3-element spacing [sz, sy, sx]. Passing (C, H, W) raises
+        # "axes don't match array" in the preprocessor.
+        input_arr = chunk_2d[np.newaxis, np.newaxis, :, :].astype(np.float32)
+        props = {'spacing': [999.0, 1.0, 1.0]}
 
         mask = self.predictor.predict_single_npy_array(
             input_arr,
@@ -46,4 +47,5 @@ class ChunkProcessor:
             save_or_return_probabilities=False,
         )
 
-        return mask.astype(np.uint8)
+        # Output may be (1, H, W) or (H, W); squeeze the pseudo-Z axis.
+        return np.squeeze(np.asarray(mask)).astype(np.uint8)

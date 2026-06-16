@@ -57,6 +57,7 @@ CATATAN
 """
 import argparse
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -109,8 +110,30 @@ def _resolve_dicom_dir(dicom_dir: str) -> str:
     return dicom_dir  # biar error di pemanggil dgn pesan jelas
 
 
+# Kata kunci yang menandakan citra angiografi (modalitas yang relevan untuk
+# segmentasi aneurysm). nnU-Net dilatih pada TOF, jadi TOF adalah yang
+# paling cocok; MRA/angio lain ditandai sebagai kandidat.
+_TOF_KEYWORDS = ['tof', 't.o.f', 'time of flight', 'tone']
+_ANGIO_KEYWORDS = ['mra', 'angio', 'angiography', 'cow', 'circle of willis', 'venogram', 'mrv']
+
+
+def classify_sequence(desc: str, scanning_seq: str = '', seq_name: str = '') -> str:
+    """Klasifikasi sederhana berbasis metadata teks -> label triase.
+
+    Return salah satu: 'TOF' (paling cocok), 'ANGIO?' (kandidat angiografi
+    lain, mungkin perlu model berbeda), atau 'NON-ANGIO' (tidak cocok untuk
+    segmentasi aneurysm).
+    """
+    blob = ' '.join([desc or '', scanning_seq or '', seq_name or '']).lower()
+    if any(k in blob for k in _TOF_KEYWORDS):
+        return 'TOF'
+    if any(k in blob for k in _ANGIO_KEYWORDS):
+        return 'ANGIO?'
+    return 'NON-ANGIO'
+
+
 def list_dicom_series(dicom_dir: str):
-    """Cetak semua series di folder: ID, deskripsi, modalitas, jumlah slice."""
+    """Cetak semua series + triase TOF/angiografi untuk segmentasi aneurysm."""
     try:
         import SimpleITK as sitk
         from pydicom import dcmread
@@ -126,22 +149,42 @@ def list_dicom_series(dicom_dir: str):
         sys.exit(1)
 
     print(f'\n=== {len(series_ids)} SERIES ditemukan di {resolved} ===\n')
-    print('%-3s %-44s %-6s %-8s %s' % ('#', 'SeriesInstanceUID (singkat)', 'Modal', 'Slice', 'Description'))
+    print('%-3s %-9s %-6s %-6s %-7s %s' % ('#', 'TRIASE', 'Modal', 'Slice', 'Contrast', 'Description'))
     print('-' * 100)
+    tof_found, angio_found = [], []
     for i, sid in enumerate(series_ids):
         files = reader.GetGDCMSeriesFileNames(resolved, sid)
-        desc, modal = '?', '?'
+        desc, modal, scan_seq, seq_name, contrast = '?', '?', '', '', '-'
         try:
             ds = dcmread(files[0], stop_before_pixels=True, force=True)
-            desc = str(getattr(ds, 'SeriesDescription', '?'))[:40]
+            desc = str(getattr(ds, 'SeriesDescription', '?'))
             modal = str(getattr(ds, 'Modality', '?'))
+            scan_seq = str(getattr(ds, 'ScanningSequence', ''))
+            seq_name = str(getattr(ds, 'SequenceName', ''))
+            cba = getattr(ds, 'ContrastBolusAgent', None)
+            contrast = 'YES' if cba else '-'
         except Exception:
             pass
-        short = sid[-40:] if len(sid) > 40 else sid
-        print('%-3d %-44s %-6s %-8d %s' % (i, short, modal, len(files), desc))
-    print('\nPilih series TOF (biasanya Description mengandung "TOF"/"ToF"/"angio")')
-    print('lalu jalankan ulang dengan --series-id <SeriesInstanceUID lengkap>')
-    print('atau --series-index <#> (nomor di kolom pertama).')
+        triage = classify_sequence(desc, scan_seq, seq_name)
+        if triage == 'TOF':
+            tof_found.append(i)
+        elif triage == 'ANGIO?':
+            angio_found.append(i)
+        print('%-3d %-9s %-6s %-6d %-7s %s' % (i, triage, modal, len(files), contrast, desc[:44]))
+
+    print('\n' + '-' * 100)
+    if tof_found:
+        print(f'[OK] Series TOF terdeteksi pada index: {tof_found}')
+        print(f'     -> jalankan inference dengan --series-index {tof_found[0]}')
+    elif angio_found:
+        print(f'[PERHATIAN] Tidak ada TOF, tapi ada kandidat angiografi (index {angio_found}).')
+        print('            Model dilatih TOF; hasil pada angiografi lain mungkin tidak optimal.')
+        print('            Periksa Description; bila itu CTA/CE-MRA, butuh model berbeda.')
+    else:
+        print('[STOP] Tidak ada series TOF/angiografi. Modalitas ini TIDAK cocok')
+        print('       untuk segmentasi aneurysm (aneurysm hanya terlihat di citra')
+        print('       vaskular: TOF-MRA, CTA). Sistem sebaiknya MENOLAK input ini.')
+    print('\nPilih series, lalu jalankan: --series-index <#> atau --series-id <UID>.')
 
 
 def load_dicom_series(dicom_dir: str, series_id: str = None, series_index: int = None):
@@ -314,6 +357,8 @@ def main():
                     help='Hanya tampilkan daftar series di --dicom-dir lalu keluar (tanpa inference)')
     ap.add_argument('--series-id', help='SeriesInstanceUID lengkap untuk dipilih (untuk DICOM multi-series)')
     ap.add_argument('--series-index', type=int, help='Nomor series dari --list-series (alternatif --series-id)')
+    ap.add_argument('--benchmark-runs', type=int, default=1,
+                    help='Jumlah pengulangan inferensi untuk mengukur waktu steady-state per volume (warm model). Default 1.')
     args = ap.parse_args()
 
     # Mode listing series: tidak perlu model
@@ -353,6 +398,7 @@ def main():
 
     # Muat predictor
     print(' Loading nnU-Net predictor (ensemble)...')
+    _t_load0 = time.perf_counter()
     predictor = nnUNetPredictor(
         tile_step_size=0.5, use_gaussian=True, use_mirroring=True,
         device=device, verbose=False, allow_tqdm=False,
@@ -360,9 +406,40 @@ def main():
     predictor.initialize_from_trained_model_folder(
         args.model_folder, use_folds=folds, checkpoint_name=args.checkpoint,
     )
-    print(' Predictor loaded. Menjalankan inferensi volume...')
+    _t_load = time.perf_counter() - _t_load0
+    print(f' Predictor loaded in {_t_load:.2f} s (one-time, model warm afterwards).')
+    print(' Menjalankan inferensi volume...')
 
-    mask, axis_z = run_inference(predictor, vol, spacing)
+    # Benchmark: ukur waktu inferensi per volume (model sudah warm).
+    # Run pertama = warmup (mengabaikan overhead inisialisasi CUDA/cuDNN);
+    # run berikutnya diukur untuk steady-state.
+    n_runs = max(1, args.benchmark_runs)
+    timings = []
+    mask = None
+    axis_z = None
+    for i in range(n_runs):
+        if device.type == 'cuda':
+            torch.cuda.synchronize()
+        _t0 = time.perf_counter()
+        mask, axis_z = run_inference(predictor, vol, spacing)
+        if device.type == 'cuda':
+            torch.cuda.synchronize()
+        _dt = time.perf_counter() - _t0
+        timings.append(_dt)
+        tag = 'warmup' if (i == 0 and n_runs > 1) else 'measured'
+        print(f'   run {i+1}/{n_runs} [{tag}]: {_dt:.3f} s')
+
+    print()
+    print('=== TIMING INFERENSI PER VOLUME ===')
+    print(f' Device                 : {device} ({torch.cuda.get_device_name(0) if device.type=="cuda" else "CPU"})')
+    print(f' Model load (one-time)  : {_t_load:.2f} s')
+    if n_runs > 1:
+        steady = timings[1:]  # buang warmup
+        print(f' Inference warmup       : {timings[0]:.3f} s')
+        print(f' Inference steady-state : mean {np.mean(steady):.3f} s, min {np.min(steady):.3f} s, '
+              f'max {np.max(steady):.3f} s (n={len(steady)})')
+    else:
+        print(f' Inference (1 volume)   : {timings[0]:.3f} s')
 
     # Statistik
     fg = int((mask > 0).sum())
@@ -385,18 +462,33 @@ def main():
 
     # Dice (opsional)
     if args.ground_truth:
-        gt = nib.load(args.ground_truth).get_fdata().astype(np.uint8)
-        if gt.shape == mask.shape:
-            d = dice_score(mask, gt)
+        gt_raw = nib.load(args.ground_truth).get_fdata().astype(np.uint8)
+        if gt_raw.shape == mask.shape:
             print()
             print('=== EVALUASI ===')
-            print(f' Dice vs ground-truth : {d:.4f}')
+            labels = np.unique(gt_raw)
+            print(f' Label ground-truth   : {labels.tolist()}')
+            # ADAM: label 1 = aneurysm target; label 2 = excluded/treated (BUKAN target).
+            # Model dilatih hanya untuk label 1 (lihat dataset.json), jadi Dice
+            # dihitung terhadap label == 1 saja, bukan gt > 0.
+            if 2 in labels:
+                print(' [INFO] Label 2 terdeteksi (ADAM: excluded/treated, BUKAN target).')
+                print('        Dice dihitung HANYA terhadap label 1 (aneurysm target).')
+            gt_target = (gt_raw == 1).astype(np.uint8)
+            print(f' GT label-1 voxel     : {int(gt_target.sum())}')
+            d = dice_score(mask, gt_target)
+            print(f' Dice (vs label 1)    : {d:.4f}')
+            # Dice alternatif terhadap semua FG (label 1 atau 2) untuk konteks
+            d_all = dice_score(mask, (gt_raw > 0).astype(np.uint8))
+            print(f' Dice (vs semua FG)   : {d_all:.4f}  (referensi, label 1+2)')
             if d < 0.05:
-                print(' [PERINGATAN] Dice sangat rendah. Cek orientasi volume / spacing.')
+                print(' [CATATAN] Dice rendah. Wajar untuk: (a) hanya 1 fold (bukan')
+                print('           ensemble 5-fold), (b) aneurysm target sangat kecil,')
+                print('           (c) model mean Dice CV memang ~0.236.')
             else:
-                print(' [OK] Model menghasilkan prediksi yang tumpang tindih dgn ground-truth.')
+                print(' [OK] Prediksi tumpang tindih dengan aneurysm target.')
         else:
-            print(f'[WARN] shape mask {mask.shape} != ground-truth {gt.shape}, Dice dilewati.')
+            print(f'[WARN] shape mask {mask.shape} != ground-truth {gt_raw.shape}, Dice dilewati.')
 
     print()
     print('Selesai. Buka folder output untuk melihat mask & overlay.')

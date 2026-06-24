@@ -1,0 +1,9 @@
+# Jangan push aset besar / lingkungan lokal
+gpu_env/
+scans/
+masks/
+__pycache__/
+*.nii.gz
+# Hasil run boleh disimpan; S1.csv sengaja di-track sebagai baseline.
+S2.csv
+S3.csv
